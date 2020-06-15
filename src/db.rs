@@ -11,6 +11,7 @@ use futures_util::{
     stream::{Stream, StreamExt},
 };
 use tokio::runtime::Runtime;
+use serde::{Serialize, Deserialize};
 
 #[async_init]
 pub async fn get_db_pool() -> Result<MySqlPool, sqlx::Error> {
@@ -32,6 +33,20 @@ pub async fn get_redis() -> Result<Connection, redis::RedisError> {
 }
 
 
+struct AppConfig {
+    pub appStorageSecret: String,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct AppTrustee {
+    id: u8,
+    name: String,
+    server: String,
+    weight: u8,
+}
+
+
 pub fn init_acm() {
     let tenant =  env::var("tenant").expect("acm tenant must be set"); 
     let access_key = env::var("access_key").expect("acm tenant must be set"); 
@@ -41,9 +56,15 @@ pub fn init_acm() {
     let mut rt = Runtime::new().unwrap();
     rt.block_on(async {
         let mut client = AcmClient::new(tenant, access_key, access_secret, endpoint);
-        let result = client.get_config("acm_test", "DEFAULT_GROUP").await.unwrap();
+        let result: String = client.get_str_config("acm_test", "DEFAULT_GROUP").await.map_err(|err| {
+            println!("err is {:?}", err);
+            err
+        }).unwrap();
         println!("result is {:?}", result);
-    
+
+        let trustees: Vec<AppTrustee> = client.get_config("trustee", "DEFAULT_GROUP").await.unwrap();
+        println!("trustees is {:?}", trustees);
+
         let mut stream = client.subscribe("acm_test", "DEFAULT_GROUP");
     
         tokio::spawn(async move {

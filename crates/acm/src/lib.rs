@@ -23,7 +23,7 @@ use chrono::prelude::*;
 use base64;
 use percent_encoding::percent_decode;
 use futures_channel::{mpsc, oneshot};
-
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 // use tokio::sync::{mpsc, oneshot};
 use futures_util::{
     stream::{Stream, StreamExt},
@@ -325,7 +325,13 @@ impl AcmClient {
         
     }
 
-    pub async fn get_config(&self, data_id: &str, group_id: &str) -> Result<String, Box<dyn Error>> {
+    pub async fn get_str_config(&self, data_id: &str, group_id: &str) -> Result<String, Box<dyn Error>> {
         self.inner.get_config(data_id, group_id).await
+    }
+
+    pub async fn get_config<T>(&self, data_id: &str, group_id: &str) -> Result<T, Box<dyn Error>> where T: Sized + DeserializeOwned {
+    // pub async fn get_config<T>(&self, data_id: &str, group_id: &str) -> Result<String, Box<dyn Error>> where T:Deserialize {
+        let result:String = self.inner.get_config(data_id, group_id).await?;
+        Ok(serde_json::from_str::<T>(&result)?)
     }
 }
